@@ -1,0 +1,313 @@
+body{
+  margin: 0;
+  position: relative;
+}
+/* 设置滚动条的样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+/* 滚动槽 */
+::-webkit-scrollbar-track {
+  box-shadow: inset 0 0 6px rgba(0,0,0,0.1);
+  border-radius: 8px;
+}
+/* 滚动条滑块 */
+::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background: #b1b1b1;
+  box-shadow: inset 0 0 6px rgba(0,0,0,0.25);
+}
+.popup{
+  width: 400px;
+  max-height: 600px;
+  background-color: white;
+}
+.search_history{
+  width: calc(100% - 20px);
+  display: block;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  height: 36px;
+  padding: 8px;
+  box-sizing: border-box;
+  margin: 10px 10px 0;
+}
+.copy_success{
+  position: fixed;
+  left: 50%;
+  margin-left: -50px;
+  top: 52px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  width: 100px;
+  height: 36px;
+  line-height: 36px;
+  text-align: center;
+  background-color: white;
+  font-size: 14px;
+  display: none;
+  box-shadow: rgba(0,0,0,0.17) 0 5px 15px;
+}
+.copy_history{
+  width: calc(100% - 20px);
+  min-height: 230px;
+    max-height: 400px;
+  box-sizing: border-box;
+  gap: 10px 10px;
+  margin: 10px 10px 0;
+  font-size: 14px;
+  color: #333;
+  overflow-y: auto;
+  padding: 2px;
+}
+.copy_history .empty{
+  text-align: center;
+  color: #ccc;
+  padding-bottom: 10px;
+}
+.copy_history .privacy{
+  font-size: 12px;
+  line-height: 36px;
+  color: #ccc;
+  text-align: center;
+}
+.copy_history .copy_item{
+  display: grid;
+  grid-template-columns: 40px auto 30px;
+  font-size: 14px;
+  line-height: 36px;
+  text-align: left;
+  color: rgba(0,0,0,0.85);
+  text-decoration: none;
+}
+.copy_history .copy_item pre,.copy_history .copy_item code{
+  margin: 0;
+  white-space: nowrap;
+  width: calc(100% - 10px);
+  overflow : hidden;
+  display: grid;
+}
+.copy_history .copy_item.stick .stick_item{
+  visibility: visible;
+  opacity: 0.1;
+}
+.copy_history .copy_item.stick .stick_item.topping {
+  opacity: 1;
+}
+.copy_history .copy_item .click_target{
+  width: calc(100% - 10px);
+  display: inline-block;
+  overflow : hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: copy;
+  text-decoration: none;
+  color: rgba(0,0,0,0.85);
+}
+.copy_history .copy_item:hover{
+  background-color: aliceblue;
+}
+
+.copy_history .copy_item:hover .action_item{
+  visibility: visible;
+}
+
+.copy_history .action_item{
+  width: 16px;
+  height: 16px;
+  visibility: hidden;
+  padding: 6px;
+  background-size: 16px 16px;
+  margin: 4px 2px;
+  opacity: 0.4;
+  cursor: pointer;
+}
+.copy_history .action_item:hover{
+  opacity: 1;
+}
+.copy_history .delete_item{
+  background: url('chrome-extension://__MSG_@@extension_id__/images/delete.svg')
+    center center no-repeat;
+  background-size: 15px 15px;
+}
+.copy_history .stick_item{
+  background: url('chrome-extension://__MSG_@@extension_id__/images/stick.svg')
+    center center no-repeat;
+}
+
+.popup_title{
+  position: relative;
+  font-size: 16px;
+  font-weight: normal;
+  color: #333;
+  text-align: center;
+  line-height: 40px;
+  padding: 0;
+  margin: 0;
+  background-color: #eff1f2;
+}
+.popup_title .setting,
+.popup_title .back,
+.popup_title .qrcode_back {
+  position: absolute;
+  top: 8px;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.popup_title .setting{
+  right: 10px;
+  background: url('chrome-extension://__MSG_@@extension_id__/images/setting.svg') center center no-repeat;
+}
+.popup_title .back,
+.popup_title .qrcode_back {
+  left: 10px;
+  background: url('chrome-extension://__MSG_@@extension_id__/images/arrow-left.svg') center center no-repeat;
+}
+
+/* 配置项 */
+.options_wrapper,
+.qrcode_wrapper {
+  position: absolute;
+  width: 100%;
+  height: 100vh;
+  left: -110%;
+  top: 0px;
+  opacity: 0;
+  z-index: 2;
+  background-color: white;
+  transition: all 0.3s;
+  border-right: 1px solid #ccc;
+  outline: none;
+}
+.options_wrapper.open,
+.qrcode_wrapper.open {
+  left: 0;
+  opacity: 1;
+}
+/* 赞赏码 */
+.qrcode_content .qrcode {
+  width: 300px;
+  height: 300px;
+  margin: 0 auto;
+  background: url('chrome-extension://__MSG_@@extension_id__/images/qrcode.jpg') center center no-repeat;
+  background-size: cover;
+}
+.auto_clipboard_options{
+  width: 100%;
+  box-sizing: border-box;
+}
+form[name="optionForm"]{
+  padding: 20px;
+  overflow-y: auto;
+}
+.auto_clipboard_options .form_item{
+  line-height: 32px;
+  font-size: 14px;
+  vertical-align: text-top;
+}
+.auto_clipboard_options .form_item .label, .auto_clipboard_options .form_item input[type="checkbox"]{
+  cursor: pointer;
+}
+.auto_clipboard_options .form_submit{
+  line-height: 32px;
+  margin-top: 20px;
+}
+.auto_clipboard_options .form_submit button{
+  margin-right: 10px;
+}
+.auto_clipboard_options .preview_desc{
+  line-height: 32px;
+}
+
+.auto_clipboard_options .preview {
+  width: 100px;
+  height: 30px;
+  display: inline-block;
+  text-align: center;
+  z-index: 9999999;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 30px;
+  margin: 0;
+  padding: 0;
+  right: 20px;
+  bottom: 20px;
+}
+.auto_clipboard_options .option_tips{
+  color: #51b362;
+  display: none;
+}
+.setting-color{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.footer {
+  display: flex;
+  font-size: 14px;
+  border-top: 1px solid #e9e6e6;
+  text-align: right;
+  height: 30px;
+  line-height: 30px;
+  justify-content: right;
+}
+
+.footer .donate-wrap,
+.footer .github-wrap {
+  display: flex;
+  align-items: center;
+  margin: 0 8px;
+  color: #999;
+  text-decoration: underline;
+    cursor: pointer;
+  }
+  
+  .footer .donate-wrap:hover,
+  .footer .github-wrap:hover {
+    color: blue;
+}
+
+.footer .donate {
+  width: 24px;
+  height: 24px;
+  display: inline-block;
+  background: url('chrome-extension://__MSG_@@extension_id__/images/coffee-icon.svg') center center no-repeat;
+  background-size: auto 24px;
+  
+}
+
+.footer .github {
+  width: 24px;
+  height: 24px;
+  display: inline-block;
+  background: url('chrome-extension://__MSG_@@extension_id__/images/github-mark.svg') center center no-repeat;
+  background-size: auto 20px;
+}
+
+.sync-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 0;
+  padding: 0 10px;
+}
+
+.sync-buttons button {
+  padding: 5px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.sync-buttons button:hover {
+  background: #f5f5f5;
+  border-color: #ccc;
+}
+
+.sync-buttons button:active {
+  background: #e5e5e5;
+}

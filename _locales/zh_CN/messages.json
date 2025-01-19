@@ -1,0 +1,95 @@
+{
+  "extName": {
+    "message": "小灵剪切板"
+  },
+  "defaultTitle": {
+    "message": "小灵剪切板"
+  },
+  "description": {
+    "message": "选中文字自动复制，禁止选择、禁止复制的文字也能复制，可复制百度文库和各类网站，支持查看剪切板历史记录"
+  },
+  "copyError": {
+    "message": "复制失败: "
+  },
+  "copySuccess": {
+    "message": "复制成功"
+  },
+  "preview": {
+    "message": "预览"
+  },
+  "messageBackground": {
+    "message": "提示语背景颜色："
+  },
+  "messageColor": {
+    "message": "提示语文字颜色："
+  },
+  "save": {
+    "message": "保存"
+  },
+  "reset": {
+    "message": "重置"
+  },
+  "saveSuccess": {
+    "message": "保存成功"
+  },
+  "searchHistory": {
+    "message": "搜索剪切板记录"
+  },
+  "historyEmpty": {
+    "message": "没有记录"
+  },
+  "delete": {
+    "message": "删除"
+  },
+  "stick": {
+    "message": "置顶"
+  },
+  "cancelStick": {
+    "message": "取消置顶"
+  },
+  "popupTitle": {
+    "message": "小灵剪切板"
+  },
+  "privacy": {
+    "message": "剪切板数据仅保存在您的浏览器本地"
+  },
+  "setting": {
+    "message": "设置"
+  },
+  "back": {
+    "message": "返回"
+  },
+  "dissolve": {
+    "message": "自动破解网页，允许选中和复制"
+  },
+  "copy" : {
+    "message": "选择文本自动复制"
+  },
+  "operation": {
+    "message": "一. 操作配置"
+  },
+  "color": {
+    "message": "二. 提示语颜色"
+  },
+  "auto_copy": {
+    "message": "自动复制本站内容"
+  },
+  "disable_copy": {
+    "message": "不要自动复制本站内容"
+  },
+  "tooltip": {
+    "message": "复制成功提示"
+  },
+  "thank_you": {
+    "message": "感谢您的捐助"
+  },
+  "donate": {
+    "message": "捐助"
+  },
+  "contribute": {
+    "message": "贡献"
+  },
+  "contextMenu": {
+    "message": "鼠标右键菜单快捷键"
+  }
+}

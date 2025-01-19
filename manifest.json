@@ -1,0 +1,66 @@
+{
+  "manifest_version": 3,
+  "name": "小灵剪切板",
+  "version": "2.1",
+  "action": {
+    "default_icon": {
+      "16": "images/icon@128.png",
+      "24": "images/icon@128.png",
+      "32": "images/icon@128.png",
+      "48": "images/icon@128.png",
+      "128": "images/icon@128.png"
+    },
+    "default_title": "小灵剪切板",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "images/icon@128.png",
+    "24": "images/icon@128.png",
+    "32": "images/icon@128.png",
+    "48": "images/icon@128.png",
+    "128": "images/icon@128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "all_frames": true,
+      "js": [
+        "content-script.js",
+        "initialization.js"
+      ],
+      "match_about_blank": true,
+      "run_at": "document_end",
+      "type": "module"
+    }
+  ],
+  "default_locale": "zh_CN",
+  "description": "一个强大的智能剪切板工具，支持云同步、历史记录、智能复制等功能",
+  "author": "wangmeijian",
+  "permissions": [
+    "storage",
+    "identity",
+    "clipboardRead",
+    "clipboardWrite",
+    "contextMenus",
+    "activeTab",
+    "scripting"
+  ],
+  "commands": {
+    "copy_full_page": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+X",
+        "mac": "Command+Shift+X"
+      },
+      "description": "复制整个页面内容"
+    }
+  },
+  "oauth2": {
+    "client_id": "1043778223236-srdd9cju843ceqgd0l5d5trq567v3d42.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/drive.file"
+    ]
+  }
+}

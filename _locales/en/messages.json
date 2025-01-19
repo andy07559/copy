@@ -1,0 +1,126 @@
+{
+  "extName": {
+    "message": "XiaoLing Clipboard",
+    "description": "扩展名称"
+  },
+  "defaultTitle": {
+    "message": "XiaoLing Clipboard",
+    "description": "鼠标滑过插件图标时的提示语"
+  },
+  "description": {
+    "message": "Select automatic copy of text, crack selection prohibition and copy prohibition, support various libraries and websites, and support viewing the history of clipboard",
+    "description": "插件描述"
+  },
+  "copyError": {
+    "message": "Failed to copy: ",
+    "description": "复制失败提示"
+  },
+  "copySuccess": {
+    "message": "Copied",
+    "description": "复制成功提示"
+  },
+  "preview": {
+    "message": "preview",
+    "description": "预览"
+  },
+  "messageBackground": {
+    "message": "Prompt background color:",
+    "description": "提示语背景色"
+  },
+  "messageColor": {
+    "message": "Prompt Language color:",
+    "description": "提示语文字色"
+  },
+  "save": {
+    "message": "save",
+    "description": "保存"
+  },
+  "reset": {
+    "message": "reset",
+    "description": "重置"
+  },
+  "saveSuccess": {
+    "message": "save success",
+    "description": "保存成功"
+  },
+  "searchHistory": {
+    "message": "search clipboard history",
+    "description": "搜索剪切板记录"
+  },
+  "historyEmpty": {
+    "description": "clipboard history is empty",
+    "message": "No records found"
+  },
+  "delete": {
+    "description": "delete",
+    "message": "Delete"
+  },
+  "stick": {
+    "description": "stick",
+    "message": "Pin"
+  },
+  "cancelStick": {
+    "description": "cancel stick",
+    "message": "Unpin"
+  },
+  "popupTitle": {
+    "description": "Clipboard",
+    "message": "XiaoLing Clipboard"
+  },
+  "privacy": {
+    "description": "Clipboard data is only stored locally in your browser",
+    "message": "Clipboard data is only stored locally in your browser"
+  },
+  "setting": {
+    "description": "Setting",
+    "message": "Settings"
+  },
+  "back": {
+    "description": "Back",
+    "message": "Back"
+  },
+  "dissolve": {
+    "description": "Automatically crack web pages, allowing selection and copying",
+    "message": "Automatically enable text selection and copying"
+  },
+  "copy" : {
+    "description": "Select Automatic Copy of Text",
+    "message": "Auto-copy selected text"
+  },
+  "operation": {
+    "description": "Operation configuration",
+    "message": "1. Operation Settings"
+  },
+  "color": {
+    "description": "Prompt color",
+    "message": "2. Message Colors"
+  },
+  "auto_copy": {
+    "description": "Automatically copy the content of this site",
+    "message": "Enable auto-copy for this site"
+  },
+  "disable_copy": {
+    "description": "Do not copy the content of this site automatically",
+    "message": "Disable auto-copy for this site"
+  },
+  "tooltip": {
+    "description": "Prompt for successful copying",
+    "message": "Show copy success message"
+  },
+  "thank_you": {
+    "description": "Thank you for your donation",
+    "message": "Thank you for your donation"
+  },
+  "donate": {
+    "description": "Donate",
+    "message": "Donate"
+  },
+  "contribute": {
+    "description": "Contribute",
+    "message": "Contribute"
+  },
+  "contextMenu": {
+    "description": "Right mouse button menu shortcut keys",
+    "message": "Show right-click menu options"
+  }
+}

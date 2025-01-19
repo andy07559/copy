@@ -1,0 +1,31 @@
+{
+  "name": "auto_clipboard",
+  "version": "0.8.0",
+  "description": "自动剪切板",
+  "main": "content-script.js",
+  "scripts": {
+    "lint": "eslint . --ext .js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wangmeijian/auto_clipboard.git"
+  },
+  "keywords": [
+    "auto",
+    "clipboard"
+  ],
+  "author": "wangmeijian2016@gmail.com",
+  "license": "GPL",
+  "bugs": {
+    "url": "https://github.com/wangmeijian/auto_clipboard/issues"
+  },
+  "homepage": "https://github.com/wangmeijian/auto_clipboard#readme",
+  "devDependencies": {
+    "esbuild": "^0.14.22",
+    "eslint": "^8.21.0",
+    "pre-commit": "^1.2.2"
+  },
+  "pre-commit": [
+    "lint"
+  ]
+}
