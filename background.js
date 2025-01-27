@@ -8,6 +8,9 @@ let injectionQueue = new Map();  // 存储注入队列
 const INJECTION_TIMEOUT = 10000;  // 注入超时时间
 const MAX_INJECTION_RETRIES = 3;  // 最大注入重试次数
 
+// 存储自动复制开关状态的键名
+const AUTO_COPY_KEY = "auto_clipboard_enabled";
+
 /**
  * 清理无效的标签页连接
  * 通过发送ping消息来检测连接是否有效
@@ -139,8 +142,18 @@ async function ensureContentScriptInjected(tabId) {
             // 获取标签页信息
             const tab = await chrome.tabs.get(tabId);
             
+            // 检查标签页是否存在且有URL
+            if (!tab || !tab.url) {
+              console.warn('标签页不存在或没有URL');
+              return false;
+            }
+
             // 检查URL是否可以注入
-            if (tab.url.startsWith('chrome://') || tab.url.startsWith('edge://')) {
+            if (tab.url.startsWith('chrome://') || 
+                tab.url.startsWith('edge://') || 
+                tab.url.startsWith('about:') || 
+                tab.url.startsWith('chrome-extension://') || 
+                tab.url.startsWith('file://')) {
               console.warn('无法注入内容脚本到浏览器页面:', tab.url);
               return false;
             }
@@ -210,6 +223,10 @@ chrome.runtime.onInstalled.addListener(async () => {
   try {
     // 检查右键菜单配置
     const results = await chrome.storage.sync.get(["contextMenu"]);
+
+    // 初始化自动复制状态
+    const autoCopyEnabled = await getAutoCopyEnabled();
+    await chrome.storage.sync.set({ [AUTO_COPY_KEY]: autoCopyEnabled });
 
     // 如果启用了右键菜单，创建菜单项
     if (results.contextMenu === "on") {
@@ -286,4 +303,110 @@ chrome.commands.onCommand.addListener(async (command) => {
       console.error('快捷键命令执行失败:', error);
     }
   }
+});
+
+// 获取自动复制状态
+async function getAutoCopyEnabled() {
+  try {
+    const result = await chrome.storage.sync.get([AUTO_COPY_KEY]);
+    return result[AUTO_COPY_KEY] !== false; // 默认为开启状态
+  } catch (error) {
+    console.error('获取自动复制状态失败:', error);
+    return true; // 出错时默认开启
+  }
+}
+
+// 在注入content-script时传递自动复制状态
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete') {
+    try {
+      // 等待一段时间确保content-script已加载
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 先检查content-script是否已注入
+      const isInjected = await ensureContentScriptInjected(tabId);
+      if (!isInjected) {
+        console.log('content-script未注入，跳过发送消息');
+        return;
+      }
+
+      // 获取自动复制状态
+      const isEnabled = await getAutoCopyEnabled();
+      
+      // 使用sendMessage的完整形式，包含错误处理
+      await new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tabId, {
+          type: 'updateAutoCopy',
+          enabled: isEnabled
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            // 忽略特定错误
+            if (chrome.runtime.lastError.message.includes('Receiving end does not exist')) {
+              console.log('标签页未准备好接收消息，这是正常的');
+              resolve();
+            } else {
+              console.warn('发送消息失败:', chrome.runtime.lastError);
+              reject(chrome.runtime.lastError);
+            }
+          } else {
+            resolve(response);
+          }
+        });
+      });
+    } catch (error) {
+      // 忽略特定错误
+      if (error?.message?.includes('Receiving end does not exist')) {
+        console.log('标签页未准备好接收消息，这是正常的');
+      } else {
+        console.error('发送自动复制状态失败:', error);
+      }
+    }
+  }
+});
+
+// 监听来自popup的消息
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'updateAutoCopy') {
+    // 更新自动复制状态
+    chrome.tabs.query({}, async (tabs) => {
+      for (const tab of tabs) {
+        try {
+          // 检查content-script是否已注入
+          const isInjected = await ensureContentScriptInjected(tab.id);
+          if (!isInjected) {
+            console.log(`标签页 ${tab.id} content-script未注入，跳过发送消息`);
+            continue;
+          }
+
+          // 使用Promise包装消息发送
+          await new Promise((resolve, reject) => {
+            chrome.tabs.sendMessage(tab.id, {
+              type: 'updateAutoCopy',
+              enabled: message.enabled
+            }, (response) => {
+              if (chrome.runtime.lastError) {
+                if (chrome.runtime.lastError.message.includes('Receiving end does not exist')) {
+                  console.log(`标签页 ${tab.id} 未准备好接收消息，这是正常的`);
+                  resolve();
+                } else {
+                  console.warn(`发送消息到标签页 ${tab.id} 失败:`, chrome.runtime.lastError);
+                  reject(chrome.runtime.lastError);
+                }
+              } else {
+                resolve(response);
+              }
+            });
+          });
+        } catch (error) {
+          // 忽略特定错误
+          if (error?.message?.includes('Receiving end does not exist')) {
+            console.log(`标签页 ${tab.id} 未准备好接收消息，这是正常的`);
+          } else {
+            console.error(`发送消息到标签页 ${tab.id} 失败:`, error);
+          }
+        }
+      }
+    });
+  }
+  return true; // 保持消息通道开启
 });

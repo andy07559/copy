@@ -29,6 +29,8 @@ class Popup {
     this._timer = null;
     // 当前版本号
     this._VERSION = '2.2.0';
+    // 存储自动复制开关状态的键名
+    this._AUTO_COPY_KEY = "auto_clipboard_enabled";
     // 初始化页面
     this._initPage().catch(error => {
       if (error.message === 'Extension context invalidated.') {
@@ -73,6 +75,8 @@ class Popup {
         historyContainer.innerHTML = historyHTML;
       }
 
+      // 初始化自动复制开关状态
+      await this._initAutoCopySwitch();
       // 初始化选项页面
       this._initOptionsPage();
       // 绑定事件监听器
@@ -1164,6 +1168,52 @@ class Popup {
     // 清理
     document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
+  }
+
+  /**
+   * 初始化自动复制开关
+   */
+  async _initAutoCopySwitch() {
+    try {
+      // 获取存储的开关状态
+      const result = await chrome.storage.sync.get([this._AUTO_COPY_KEY]);
+      const isEnabled = result[this._AUTO_COPY_KEY] !== false; // 默认为开启状态
+      
+      // 设置开关状态
+      const switchElem = document.getElementById('autoClipSwitch');
+      if (switchElem) {
+        switchElem.checked = isEnabled;
+        
+        // 添加切换事件监听
+        switchElem.addEventListener('change', async (e) => {
+          const enabled = e.target.checked;
+          
+          // 保存开关状态
+          await chrome.storage.sync.set({
+            [this._AUTO_COPY_KEY]: enabled
+          });
+          
+          // 通知background.js更新复制功能状态
+          chrome.runtime.sendMessage({
+            type: 'updateAutoCopy',
+            enabled: enabled
+          });
+          
+          // 显示状态提示
+          const message = enabled ? '已开启自动复制' : '已关闭自动复制';
+          const successElem = document.querySelector('.copy_success');
+          if (successElem) {
+            successElem.textContent = message;
+            successElem.style.display = 'block';
+            setTimeout(() => {
+              successElem.style.display = 'none';
+            }, 1500);
+          }
+        });
+      }
+    } catch (error) {
+      console.error('初始化自动复制开关失败:', error);
+    }
   }
 }
 

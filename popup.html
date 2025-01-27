@@ -128,6 +128,65 @@
       display: none;
       box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
     }
+
+    .switch-wrapper {
+      display: flex;
+      align-items: center;
+      margin-left: 12px;
+      margin-right: 8px;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+      margin-left: 4px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.3);
+      transition: .3s;
+      border-radius: 20px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: rgba(255, 255, 255, 0.9);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+      background-color: #4CAF50;
+    }
+
+    .switch-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.9);
+    }
   </style>
 </head>
 <body>
@@ -136,6 +195,13 @@
     <div class="popup_title">
       小灵剪切板
       <span class="version">v2.2.0</span>
+      <div class="switch-wrapper">
+        <span class="switch-label">自动复制</span>
+        <label class="switch">
+          <input type="checkbox" id="autoClipSwitch" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
       <span class="setting"></span>
     </div>
     <div class="sync-buttons">

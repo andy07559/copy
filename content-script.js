@@ -28,7 +28,7 @@ class AutoClipboard {
     this.isInitialized = false;
     this.isExtensionValid = true;
     this.initRetryCount = 0;
-    this.MAX_RETRY_COUNT = 10;  // 增加初始化重试次数
+    this.MAX_RETRY_COUNT = 5;  // 减少初始化重试次数
     this.MAX_RECONNECT_ATTEMPTS = 15;  // 增加最大重连次数
     this.RECONNECT_INTERVAL = 1000;  // 减少初始重连间隔
     this.MIN_RECONNECT_INTERVAL = 1000;  // 减少最小重连间隔
@@ -50,6 +50,32 @@ class AutoClipboard {
     this.lastContextCheck = Date.now();
     this.contextCheckInterval = 5000; // 每5秒检查一次扩展上下文
     this.contextCheckTimer = null;
+    
+    // 添加自动复制开关状态
+    this.isAutoCopyEnabled = true;
+    
+    // 添加重试延迟时间
+    this.RETRY_DELAY = 2000;   // 增加重试延迟
+    this.MAX_BACKOFF_DELAY = 10000; // 最大退避延迟
+    
+    // 增加连接状态管理
+    this.connectionState = {
+      isConnecting: false,
+      lastAttempt: 0,
+      failures: 0,
+      backoffDelay: 1000
+    };
+    
+    // 增加错误恢复标志
+    this.recoveryMode = false;
+    this.lastRecoveryAttempt = 0;
+    this.RECOVERY_COOLDOWN = 30000; // 恢复冷却时间
+    
+    // 添加特殊域名列表
+    this.SPECIAL_DOMAINS = [
+      'translate.google.com',
+      'cloud.google.com'
+    ];
     
     // 初始化时启动上下文检查
     this._startContextCheck();
@@ -123,12 +149,36 @@ class AutoClipboard {
    */
   async _initialize() {
     try {
+      // 检查是否处于恢复模式
+      if (this.recoveryMode) {
+        const now = Date.now();
+        if (now - this.lastRecoveryAttempt < this.RECOVERY_COOLDOWN) {
+          console.log('正在恢复模式冷却中，跳过初始化');
+          return;
+        }
+        this.recoveryMode = false;
+      }
+
       // 等待 DOM 加载完成
       if (document.readyState === 'loading') {
         await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, { once: true }));
       }
 
-      // 如果页面不可见或不活跃，等待页面变为可见
+      // 检查是否为特殊域名
+      if (this._isSpecialDomain()) {
+        console.log('特殊域名，使用有限功能模式');
+        this._detectWebsites();
+        this._addActionListener();
+        this.isInitialized = true;
+        return;
+      }
+
+      // 检查扩展上下文
+      if (!this._checkExtensionContext()) {
+        throw new Error('扩展上下文无效');
+      }
+
+      // 检查页面状态
       if (!this.isPageVisible || !this.isPageActive) {
         console.log('页面当前不可见或不活跃，等待页面激活');
         this.reconnectOnVisible = true;
@@ -138,14 +188,44 @@ class AutoClipboard {
       await this._startInitialization();
     } catch (error) {
       console.error('初始化失败:', error);
+      
+      // 错误恢复处理
+      if (error.message.includes('Extension context invalidated')) {
+        this.recoveryMode = true;
+        this.lastRecoveryAttempt = Date.now();
+        console.log('进入恢复模式，等待页面刷新');
+        return;
+      }
+
+      // 重试处理
       if (this.initRetryCount < this.MAX_RETRY_COUNT) {
         this.initRetryCount++;
-        console.log(`尝试重新初始化 (${this.initRetryCount}/${this.MAX_RETRY_COUNT})`);
-        await new Promise(resolve => setTimeout(resolve, this.RECONNECT_INTERVAL));
+        const delay = Math.min(
+          this.RETRY_DELAY * Math.pow(2, this.initRetryCount - 1),
+          this.MAX_BACKOFF_DELAY
+        );
+        console.log(`将在 ${delay}ms 后重试初始化 (${this.initRetryCount}/${this.MAX_RETRY_COUNT})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
         return this._initialize();
       } else {
-        console.error('达到最大初始化重试次数');
+        console.error('达到最大初始化重试次数，建议刷新页面');
+        this._showError(i18n("initializationError"));
       }
+    }
+  }
+
+  /**
+   * @desc 检查是否为特殊域名
+   */
+  _isSpecialDomain() {
+    try {
+      const currentHost = window.location.hostname.toLowerCase();
+      return this.SPECIAL_DOMAINS.some(domain => 
+        currentHost === domain || currentHost.endsWith('.' + domain)
+      );
+    } catch (error) {
+      console.warn('检查域名失败:', error);
+      return false;
     }
   }
 
@@ -176,125 +256,86 @@ class AutoClipboard {
    * @desc 设置扩展状态监听
    */
   async _setupExtensionStateListener() {
-    // 首先检查扩展上下文
-    if (!this._checkExtensionContext()) {
-      return false;
-    }
-
-    if (this.isConnecting) {
+    if (this.connectionState.isConnecting) {
       console.log('正在连接中，跳过重复连接');
       return false;
     }
 
-    // 检查页面状态
-    if (!this.isPageVisible || !this.isPageActive) {
-      console.log('页面不可见或不活跃，延迟连接');
-      this.reconnectOnVisible = true;
+    // 检查连接时间间隔
+    const now = Date.now();
+    const timeSinceLastAttempt = now - this.connectionState.lastAttempt;
+    if (timeSinceLastAttempt < this.connectionState.backoffDelay) {
+      console.log(`等待连接冷却时间 ${this.connectionState.backoffDelay - timeSinceLastAttempt}ms`);
       return false;
     }
 
-    this.isConnecting = true;
+    this.connectionState.isConnecting = true;
+    this.connectionState.lastAttempt = now;
 
     try {
       // 清理旧连接
-      this._clearConnection();
-      
-      // 再次检查扩展环境
-      if (!this.extensionContextValid || !chrome.runtime) {
-        console.warn('扩展环境不可用');
-        this.isExtensionValid = false;
-        return false;
-      }
+      await this._clearConnection();
 
-      // 检查重连间隔
-      const now = Date.now();
-      if (now - this.lastReconnectTime < this.MIN_RECONNECT_INTERVAL) {
-        const waitTime = this.MIN_RECONNECT_INTERVAL - (now - this.lastReconnectTime);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      }
-
-      this.lastReconnectTime = Date.now();
-      this.connectionAttempts++;
-
-      // 建立新连接
+      // 创建新连接
       this.port = chrome.runtime.connect({ name: 'content-script' });
       
-      // 设置连接监听器
-      const connected = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('连接超时'));
-        }, this.CONNECTION_TIMEOUT);
-
-        const cleanup = () => {
-          clearTimeout(timeout);
-          if (this.port) {
-            this.port.onDisconnect.removeListener(disconnectHandler);
-            this.port.onMessage.removeListener(messageHandler);
-          }
-        };
-
-        const disconnectHandler = () => {
-          cleanup();
-          this._handleDisconnect();
-          reject(new Error('连接断开'));
-        };
-
-        const messageHandler = (msg) => {
-          if (msg.type === 'pong') {
-            cleanup();
-            this.isExtensionValid = true;
-            this.reconnectAttempts = 0;
-            this.connectionAttempts = 0;
-            this.lastError = null;
-            resolve(true);
-          }
-        };
-
-        if (this.port) {
-          this.port.onDisconnect.addListener(disconnectHandler);
-          this.port.onMessage.addListener(messageHandler);
-
-          // 发送 ping 消息
-          try {
-            this.port.postMessage({ type: 'ping' });
-          } catch (error) {
-            cleanup();
-            reject(error);
-          }
-        } else {
-          cleanup();
-          reject(new Error('端口创建失败'));
-        }
+      // 设置连接事件处理
+      this.port.onDisconnect.addListener(() => {
+        const error = chrome.runtime.lastError;
+        this._handleDisconnect(error);
       });
 
-      if (connected) {
-        // 设置消息监听器
-        this._setupMessageListener();
-
-        // 开始定期检查连接
-        this._startConnectionCheck();
-
-        console.log('扩展连接已建立');
-        this.isExtensionValid = true;
-        return true;
-      }
+      // 重置连接状态
+      this.connectionState.failures = 0;
+      this.connectionState.backoffDelay = 1000;
       
-      return false;
+      return true;
     } catch (error) {
-      this.lastError = error;
-      console.warn('设置扩展状态监听失败:', error);
-      
-      if (error.message.includes('Extension context invalidated')) {
-        this._handleContextInvalidated();
-      } else if (error.message.includes('连接超时')) {
-        console.warn('连接超时，将在页面可见时重试');
-        this.reconnectOnVisible = true;
-      }
-      
-      this._handleDisconnect();
+      this._handleConnectionError(error);
       return false;
     } finally {
-      this.isConnecting = false;
+      this.connectionState.isConnecting = false;
+    }
+  }
+
+  _handleConnectionError(error) {
+    console.error('连接错误:', error);
+    
+    // 增加失败计数和退避延迟
+    this.connectionState.failures++;
+    this.connectionState.backoffDelay = Math.min(
+      this.RETRY_DELAY * Math.pow(2, this.connectionState.failures),
+      this.MAX_BACKOFF_DELAY
+    );
+
+    if (error.message.includes('Extension context invalidated')) {
+      this.recoveryMode = true;
+      this.lastRecoveryAttempt = Date.now();
+      console.log('检测到扩展上下文失效，进入恢复模式');
+    }
+  }
+
+  _handleDisconnect(error) {
+    if (error) {
+      this._handleConnectionError(error);
+    }
+
+    // 清理连接
+    this._clearConnection();
+
+    // 检查是否需要重连
+    if (this.isPageVisible && this.isPageActive && !this.recoveryMode) {
+      if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
+        const delay = Math.min(
+          this.connectionState.backoffDelay,
+          this.MAX_BACKOFF_DELAY
+        );
+        console.log(`将在 ${delay}ms 后尝试重新连接 (${this.reconnectAttempts + 1}/${this.MAX_RECONNECT_ATTEMPTS})`);
+        this._scheduleReconnect(delay);
+      } else {
+        console.warn('达到最大重连次数，请刷新页面');
+        this._showError(i18n("reconnectError"));
+      }
     }
   }
 
@@ -303,6 +344,11 @@ class AutoClipboard {
    */
   _clearConnection() {
     try {
+      // 检查是否为特殊域名
+      if (this._isSpecialDomain()) {
+        return; // 特殊域名不需要清理连接
+      }
+
       if (this.port) {
         this.port.disconnect();
         this.port = null;
@@ -318,41 +364,12 @@ class AutoClipboard {
         this.reconnectTimer = null;
       }
     } catch (error) {
-      console.warn('清理连接失败:', error);
-    }
-  }
-
-  /**
-   * @desc 处理连接断开
-   */
-  _handleDisconnect() {
-    console.log('处理连接断开');
-    
-    // 首先检查扩展上下文
-    if (!this.extensionContextValid) {
-      console.warn('扩展上下文已失效，跳过重连');
-      return;
-    }
-    
-    // 清理连接状态
-    this._clearConnection();
-    
-    // 检查是否需要重连
-    if (this.isPageVisible && this.isPageActive) {
-      if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
-        const delay = Math.min(
-          this.RECONNECT_INTERVAL * Math.pow(2, this.reconnectAttempts),
-          this.MAX_RECONNECT_INTERVAL
-        );
-        console.log(`将在 ${delay}ms 后尝试重新连接 (${this.reconnectAttempts + 1}/${this.MAX_RECONNECT_ATTEMPTS})`);
-        this._scheduleReconnect(delay);
+      // 忽略特定错误
+      if (error.message.includes('Extension context invalidated')) {
+        console.log('扩展上下文已失效，忽略清理错误');
       } else {
-        console.warn('达到最大重连次数，请刷新页面');
-        this._showError(i18n("reconnectError"));
+        console.warn('清理连接失败:', error);
       }
-    } else {
-      console.log('页面不可见或不活跃，等待页面激活后重连');
-      this.reconnectOnVisible = true;
     }
   }
 
@@ -489,6 +506,12 @@ class AutoClipboard {
         }
         if (request.action === "copyFullPage") {
           this._copyFullPage();
+          sendResponse({ success: true });
+          return true;
+        }
+        if (request.type === 'updateAutoCopy') {
+          this.isAutoCopyEnabled = request.enabled;
+          console.log('自动复制状态更新为:', this.isAutoCopyEnabled);
           sendResponse({ success: true });
           return true;
         }
@@ -965,13 +988,16 @@ class AutoClipboard {
 
     document.addEventListener("keyup", this._combinationKey.bind(this));
     document.addEventListener("mouseup", (e) => {
-      handleActionDebounce(e);
+      // 只有在自动复制开启时才执行
+      if (this.isAutoCopyEnabled) {
+        handleActionDebounce(e);
+      }
     });
     document.addEventListener('selectstart', (e) => e.stopPropagation(), true);
     // document.execCommand("copy") 会触发copy事件，某些站点针对oncopy事件return false，因此需手动setData
     document.addEventListener('copy', (e) => {
       const selectedText = this.replaceAbnormalSpace(window.getSelection().toString().trim());
-      selectedText.length > 0 && e.clipboardData.setData('text/plain', selectedText )
+      selectedText.length > 0 && e.clipboardData.setData('text/plain', selectedText);
     }, true);
   }
   /**
