@@ -45,6 +45,15 @@ class AutoClipboard {
     this.isReconnecting = false;
     this.initializationPromise = null;
 
+    // 添加新的状态标志
+    this.extensionContextValid = true;
+    this.lastContextCheck = Date.now();
+    this.contextCheckInterval = 5000; // 每5秒检查一次扩展上下文
+    this.contextCheckTimer = null;
+    
+    // 初始化时启动上下文检查
+    this._startContextCheck();
+
     // 检查扩展是否可用
     if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.storage) {
       console.warn('扩展环境不可用，跳过初始化');
@@ -167,8 +176,20 @@ class AutoClipboard {
    * @desc 设置扩展状态监听
    */
   async _setupExtensionStateListener() {
+    // 首先检查扩展上下文
+    if (!this._checkExtensionContext()) {
+      return false;
+    }
+
     if (this.isConnecting) {
       console.log('正在连接中，跳过重复连接');
+      return false;
+    }
+
+    // 检查页面状态
+    if (!this.isPageVisible || !this.isPageActive) {
+      console.log('页面不可见或不活跃，延迟连接');
+      this.reconnectOnVisible = true;
       return false;
     }
 
@@ -178,9 +199,10 @@ class AutoClipboard {
       // 清理旧连接
       this._clearConnection();
       
-      // 检查扩展环境
-      if (!chrome.runtime) {
+      // 再次检查扩展环境
+      if (!this.extensionContextValid || !chrome.runtime) {
         console.warn('扩展环境不可用');
+        this.isExtensionValid = false;
         return false;
       }
 
@@ -205,8 +227,10 @@ class AutoClipboard {
 
         const cleanup = () => {
           clearTimeout(timeout);
-          this.port.onDisconnect.removeListener(disconnectHandler);
-          this.port.onMessage.removeListener(messageHandler);
+          if (this.port) {
+            this.port.onDisconnect.removeListener(disconnectHandler);
+            this.port.onMessage.removeListener(messageHandler);
+          }
         };
 
         const disconnectHandler = () => {
@@ -226,15 +250,20 @@ class AutoClipboard {
           }
         };
 
-        this.port.onDisconnect.addListener(disconnectHandler);
-        this.port.onMessage.addListener(messageHandler);
+        if (this.port) {
+          this.port.onDisconnect.addListener(disconnectHandler);
+          this.port.onMessage.addListener(messageHandler);
 
-        // 发送 ping 消息
-        try {
-          this.port.postMessage({ type: 'ping' });
-        } catch (error) {
+          // 发送 ping 消息
+          try {
+            this.port.postMessage({ type: 'ping' });
+          } catch (error) {
+            cleanup();
+            reject(error);
+          }
+        } else {
           cleanup();
-          reject(error);
+          reject(new Error('端口创建失败'));
         }
       });
 
@@ -247,7 +276,6 @@ class AutoClipboard {
 
         console.log('扩展连接已建立');
         this.isExtensionValid = true;
-        this.isConnecting = false;
         return true;
       }
       
@@ -255,6 +283,14 @@ class AutoClipboard {
     } catch (error) {
       this.lastError = error;
       console.warn('设置扩展状态监听失败:', error);
+      
+      if (error.message.includes('Extension context invalidated')) {
+        this._handleContextInvalidated();
+      } else if (error.message.includes('连接超时')) {
+        console.warn('连接超时，将在页面可见时重试');
+        this.reconnectOnVisible = true;
+      }
+      
       this._handleDisconnect();
       return false;
     } finally {
@@ -266,23 +302,23 @@ class AutoClipboard {
    * @desc 清理连接
    */
   _clearConnection() {
-    if (this.port) {
-      try {
+    try {
+      if (this.port) {
         this.port.disconnect();
-      } catch (error) {
-        console.warn('断开旧连接失败:', error);
+        this.port = null;
       }
-      this.port = null;
-    }
-    
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-
-    if (this.connectionCheckTimer) {
-      clearInterval(this.connectionCheckTimer);
-      this.connectionCheckTimer = null;
+      
+      if (this.connectionCheckTimer) {
+        clearInterval(this.connectionCheckTimer);
+        this.connectionCheckTimer = null;
+      }
+      
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
+    } catch (error) {
+      console.warn('清理连接失败:', error);
     }
   }
 
@@ -290,39 +326,34 @@ class AutoClipboard {
    * @desc 处理连接断开
    */
   _handleDisconnect() {
-    this.isExtensionValid = false;
-    this.isInitialized = false;
-    this.port = null;
-
-    // 清理所有定时器
+    console.log('处理连接断开');
+    
+    // 首先检查扩展上下文
+    if (!this.extensionContextValid) {
+      console.warn('扩展上下文已失效，跳过重连');
+      return;
+    }
+    
+    // 清理连接状态
     this._clearConnection();
-
-    console.warn('扩展连接已断开');
-
-    // 如果页面不可见或不活跃，标记需要重连
-    if (!this.isPageVisible || !this.isPageActive) {
-      console.log('页面当前不可用，标记待重连');
-      this.reconnectOnVisible = true;
-      return;
-    }
-
-    // 如果超过最大重试次数，停止重试
-    if (this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
-      console.error(`达到最大重连次数 (${this.MAX_RECONNECT_ATTEMPTS})，请刷新页面`);
-      if (this.lastError) {
-        console.error('最后一次错误:', this.lastError);
+    
+    // 检查是否需要重连
+    if (this.isPageVisible && this.isPageActive) {
+      if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
+        const delay = Math.min(
+          this.RECONNECT_INTERVAL * Math.pow(2, this.reconnectAttempts),
+          this.MAX_RECONNECT_INTERVAL
+        );
+        console.log(`将在 ${delay}ms 后尝试重新连接 (${this.reconnectAttempts + 1}/${this.MAX_RECONNECT_ATTEMPTS})`);
+        this._scheduleReconnect(delay);
+      } else {
+        console.warn('达到最大重连次数，请刷新页面');
+        this._showError(i18n("reconnectError"));
       }
-      return;
+    } else {
+      console.log('页面不可见或不活跃，等待页面激活后重连');
+      this.reconnectOnVisible = true;
     }
-
-    // 使用指数退避策略
-    const delay = Math.min(
-      this.RECONNECT_INTERVAL * Math.pow(2, this.reconnectAttempts),
-      this.MAX_RECONNECT_INTERVAL
-    );
-
-    console.log(`将在 ${delay}ms 后进行第 ${this.reconnectAttempts + 1}/${this.MAX_RECONNECT_ATTEMPTS} 次重连`);
-    this._scheduleReconnect(delay);
   }
 
   /**
@@ -372,27 +403,72 @@ class AutoClipboard {
    */
   _checkExtensionContext() {
     try {
-      if (!this.isPageVisible || !this.isPageActive) {
-        console.log('页面不可见或不活跃，跳过检查');
+      if (!chrome || !chrome.runtime || !chrome.runtime.id) {
+        this._handleContextInvalidated();
         return false;
       }
-
-      if (!this.isExtensionValid || !chrome.runtime || !chrome.storage || !this.port) {
-        if (this.isPageVisible && this.isPageActive) {
-          console.log('扩展上下文无效，尝试重新连接');
-          this._scheduleReconnect();
-        } else {
-          console.log('扩展上下文无效，等待页面激活后重连');
-          this.reconnectOnVisible = true;
-        }
-        return false;
-      }
+      
+      // 尝试访问扩展API以验证上下文
+      chrome.runtime.getURL('');
+      this.extensionContextValid = true;
       return true;
     } catch (error) {
-      console.warn('检查扩展上下文失败:', error);
-      this._handleDisconnect();
+      if (error.message.includes('Extension context invalidated')) {
+        this._handleContextInvalidated();
+      }
       return false;
     }
+  }
+
+  /**
+   * @desc 处理扩展上下文失效
+   */
+  _handleContextInvalidated() {
+    this.extensionContextValid = false;
+    this.isExtensionValid = false;
+    this._clearAllState();
+    
+    // 显示友好的错误提示
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = `
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      padding: 10px 20px;
+      background: rgba(255, 68, 68, 0.9);
+      color: white;
+      border-radius: 4px;
+      z-index: 999999;
+      font-size: 14px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    `;
+    errorDiv.textContent = '扩展已更新或失效，请刷新页面';
+    document.body.appendChild(errorDiv);
+    
+    // 3秒后自动移除提示
+    setTimeout(() => {
+      if (errorDiv && errorDiv.parentNode) {
+        errorDiv.parentNode.removeChild(errorDiv);
+      }
+    }, 3000);
+  }
+
+  /**
+   * @desc 清理所有状态
+   */
+  _clearAllState() {
+    this._clearConnection();
+    
+    if (this.contextCheckTimer) {
+      clearInterval(this.contextCheckTimer);
+      this.contextCheckTimer = null;
+    }
+    
+    this.isInitialized = false;
+    this.isConnecting = false;
+    this.isReconnecting = false;
+    this.reconnectAttempts = 0;
+    this.connectionAttempts = 0;
   }
 
   /**
@@ -1048,6 +1124,19 @@ class AutoClipboard {
       console.warn('识别站点失败，使用默认处理方式:', error);
       this.websiteIndex = 1; // 使用通用处理方式
     }
+  }
+
+  /**
+   * @desc 启动扩展上下文检查
+   */
+  _startContextCheck() {
+    if (this.contextCheckTimer) {
+      clearInterval(this.contextCheckTimer);
+    }
+
+    this.contextCheckTimer = setInterval(() => {
+      this._checkExtensionContext();
+    }, this.contextCheckInterval);
   }
 }
 

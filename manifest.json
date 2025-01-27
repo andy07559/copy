@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
   "name": "小灵剪切板",
-  "version": "2.1",
+  "version": "2.2",
+  "key": "ckfmfheagbcghaoffakbmankfkflajph",
   "action": {
     "default_icon": {
       "16": "images/icon@128.png",
