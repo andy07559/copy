@@ -1,23 +1,99 @@
-body{
+body {
   margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  min-width: 320px;
+  max-width: 400px;
+  background: #fff;
+}
+
+.popup {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 600px;
+}
+
+/* 历史记录项样式 */
+.history-item {
+  padding: 8px;
+  margin: 8px 0;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  background: #fff;
+  transition: all 0.3s;
+  cursor: pointer;
   position: relative;
 }
-/* 设置滚动条的样式 */
+
+.history-item:hover {
+  border-color: #2196F3;
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.1);
+}
+
+.history-item.topped {
+  background: #f8f8f8;
+  border-left: 3px solid #4CAF50;
+}
+
+.history-item .content {
+  margin-bottom: 4px;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.history-item .actions {
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.history-item:hover .actions {
+  opacity: 1;
+}
+
+.action-button {
+  padding: 2px 8px;
+  border: none;
+  border-radius: 2px;
+  background: #f5f5f5;
+  color: #666;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.action-button:hover {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.action-button.delete {
+  color: #f44336;
+}
+
+.action-button.delete:hover {
+  background: #ffebee;
+}
+
+/* 滚动条样式 */
 ::-webkit-scrollbar {
   width: 8px;
-  height: 8px;
 }
-/* 滚动槽 */
+
 ::-webkit-scrollbar-track {
-  box-shadow: inset 0 0 6px rgba(0,0,0,0.1);
-  border-radius: 8px;
+  background: #f5f5f5;
 }
-/* 滚动条滑块 */
+
 ::-webkit-scrollbar-thumb {
-  border-radius: 8px;
-  background: #b1b1b1;
-  box-shadow: inset 0 0 6px rgba(0,0,0,0.25);
+  background: #ccc;
+  border-radius: 4px;
 }
+
+::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
 .popup{
   width: 400px;
   max-height: 600px;

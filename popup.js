@@ -17,6 +17,8 @@ class Popup {
     this._history = [];
     // 定时器引用
     this._timer = null;
+    // 当前版本号
+    this._VERSION = '2.2.0';
     // 初始化页面
     this._initPage().catch(error => {
       if (error.message === 'Extension context invalidated.') {
@@ -35,7 +37,7 @@ class Popup {
       // 从本地存储加载历史记录
       const storageKey = this._STORAGE_KEY;
       const historyStorage = await chrome.storage.local.get([storageKey]);
-      // 转换历史记录格式，确保每条记录都有value和topping属性
+      // 转换历史记录格式
       this._history = (historyStorage[storageKey] || []).map((item) =>
         typeof item === "string"
           ? {
@@ -45,31 +47,19 @@ class Popup {
           : item
       );
 
+      // 更新版本号显示
+      const versionElem = document.querySelector('.version');
+      if (versionElem) {
+        versionElem.textContent = `v${this._VERSION}`;
+      }
+
       // 构建历史记录HTML
       const historyHTML = this._buildHistoryHTML();
-      // 构建弹出窗口的HTML结构
-      const popupPageHTML = `
-        <div class="popup">
-          <h1 class="popup_title">
-            ${i18n("popupTitle")}
-            <span class="setting"></span>
-          </h1>
-          <div class="sync-buttons">
-            <button class="sync-backup">备份到云端</button>
-            <button class="sync-restore">从云端恢复</button>
-          </div>
-          <input class="search_history" id="searchHistory" placeholder="${i18n(
-            "searchHistory"
-          )}" />
-          <div class="copy_history">
-            ${historyHTML}
-          </div>
-          <div class="copy_success">${i18n("copySuccess")}</div>
-        </div>
-      `;
-      const popupPageDOM = document.createElement("div");
-      popupPageDOM.innerHTML = popupPageHTML;
-      document.body.appendChild(popupPageDOM);
+      // 更新历史记录显示
+      const historyContainer = document.querySelector('.copy_history');
+      if (historyContainer) {
+        historyContainer.innerHTML = historyHTML;
+      }
 
       // 初始化选项页面
       this._initOptionsPage();
