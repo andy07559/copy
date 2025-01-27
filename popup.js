@@ -1,6 +1,16 @@
 // 国际化消息获取函数
 const i18n = (key) => chrome.i18n.getMessage(key);
 
+// 背景颜色配置
+const bgColors = [
+  ['rgba(76, 175, 80, 0.05)', 'rgba(33, 150, 243, 0.05)'],  // 绿蓝
+  ['rgba(156, 39, 176, 0.05)', 'rgba(233, 30, 99, 0.05)'],  // 紫粉
+  ['rgba(255, 193, 7, 0.05)', 'rgba(255, 87, 34, 0.05)'],   // 黄橙
+  ['rgba(0, 150, 136, 0.05)', 'rgba(3, 169, 244, 0.05)'],   // 青蓝
+  ['rgba(233, 30, 99, 0.05)', 'rgba(156, 39, 176, 0.05)'],  // 粉紫
+  ['rgba(103, 58, 183, 0.05)', 'rgba(33, 150, 243, 0.05)'], // 深紫蓝
+];
+
 /**
  * 弹出窗口类
  * 负责管理插件的弹出窗口界面和功能
@@ -26,6 +36,8 @@ class Popup {
         document.body.innerHTML = '<div class="error-message">扩展已更新，请关闭后重新打开</div>';
       }
     });
+    // 初始化背景色
+    this._initBackground();
   }
 
   /**
@@ -108,6 +120,33 @@ class Popup {
     } catch (error) {
       console.error('初始化失败:', error);
       throw error;
+    }
+  }
+
+  /**
+   * 初始化背景色
+   */
+  _initBackground() {
+    let currentIndex = Math.floor(Math.random() * bgColors.length);
+    
+    // 设置初始背景
+    this._setGradient(bgColors[currentIndex]);
+    
+    // 每30秒切换一次背景色
+    setInterval(() => {
+      currentIndex = (currentIndex + 1) % bgColors.length;
+      this._setGradient(bgColors[currentIndex]);
+    }, 30000);
+  }
+
+  /**
+   * 设置渐变背景
+   * @param {Array} colors - 渐变色数组
+   */
+  _setGradient(colors) {
+    const popup = document.querySelector('.popup');
+    if (popup) {
+      popup.style.background = `linear-gradient(45deg, ${colors[0]}, ${colors[1]})`;
     }
   }
 
